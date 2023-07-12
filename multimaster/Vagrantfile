@@ -1,0 +1,80 @@
+Vagrant.configure("2") do |config|
+  config.vm.provision "shell", inline: "echo Hello"
+  config.vm.provider "parallels"
+ 
+  config.vm.define "k8s-loadbalancer" do |lb|
+    lb.vm.box = "whoisshyam/ubuntu-20.04-05"
+    lb.vm.hostname = "k8s-loadbalancer"
+    lb.vm.provider "parallels" do |prl|
+      prl.memory = 1024
+      prl.cpus = 1
+      prl.name = "k8s-loadbalancer"
+      prl.update_guest_tools = true
+    end
+    lb.vm.network "private_network", type: "dhcp"
+    lb.vm.network "forwarded_port", guest: 22, host: 2711, auto_correct: true
+    lb.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "/home/vagrant/.ssh/me.pub"
+    lb.vm.provision "file", source: "~/.ssh/id_rsa", destination: "/home/vagrant/.ssh/me"
+    lb.vm.provision "shell", inline: <<-SHELL
+      cat /home/vagrant/.ssh/me.pub >> /home/vagrant/.ssh/authorized_keys
+    SHELL
+    lb.vm.provision "install_haproxy", type: "shell", path: "../scripts/install_haproxy.sh" 
+    lb.vm.provision "file", source: "../scripts/sample.file", destination: "/home/vagrant/sample.file"
+    lb.vm.provision "setup_haproxy", type: "shell", path: "../scripts/setup_haproxy.sh" 
+    lb.vm.boot_timeout = 600
+  end
+
+
+ (1..3).each do |k|
+  config.vm.define "k8s-master-#{k}" do |master|
+    master.vm.box = "whoisshyam/ubuntu-20.04-05"
+    master.vm.hostname = "k8s-master-#{k}"
+    master.vm.provider "parallels" do |prl|
+      prl.memory = 1024
+      prl.cpus = 1
+      prl.name = "k8s-master-#{k}"
+      prl.update_guest_tools = true
+    end
+    master.vm.network "private_network", type: "dhcp"
+    master.vm.network "forwarded_port", guest: 22, host: 2711, auto_correct: true
+    master.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "/home/vagrant/.ssh/me.pub"
+    master.vm.provision "file", source: "~/.ssh/id_rsa", destination: "/home/vagrant/.ssh/me"
+    master.vm.provision "shell", inline: <<-SHELL
+      cat /home/vagrant/.ssh/me.pub >> /home/vagrant/.ssh/authorized_keys
+    SHELL
+#    master.vm.provision "install_crio", type: "shell", path: "../scripts/install_crio.sh" do |s|
+#      s.args = ["xUbuntu_20.04","1.25"]
+#    end
+#    master.vm.provision "install_k8s", type: "shell", path: "../scripts/install_k8s.sh"
+    master.vm.boot_timeout = 600
+  end
+ end
+ 
+
+ (1..2).each do |i|
+  config.vm.define "k8s-worker-#{i}" do |worker|
+    worker.vm.box = "whoisshyam/ubuntu-20.04-05"
+    worker.vm.hostname = "k8s-worker-#{i}"
+    worker.vm.provider "parallels" do |prl|
+      prl.memory = 8096
+      prl.cpus = 4
+      prl.name = "k8s-worker-#{i}"
+      prl.update_guest_tools = true
+    end
+    worker.vm.network "private_network", type: "dhcp"
+    worker.vm.network "forwarded_port", guest: 22, host:  "#{2711 + i}", auto_correct: true
+    worker.vm.provision "file", source: "~/.ssh/id_rsa.pub", destination: "/home/vagrant/.ssh/me.pub"
+    worker.vm.provision "shell", inline: <<-SHELL
+      cat /home/vagrant/.ssh/me.pub >> /home/vagrant/.ssh/authorized_keys
+    SHELL
+    worker.vm.provision "install_crio", type: "shell", path: "../scripts/install_crio.sh" do |s|
+      s.args = ["xUbuntu_20.04","1.25"]
+    end
+    worker.vm.provision "install_k8s", type: "shell", path: "../scripts/worker_install_k8s.sh"
+    worker.vm.boot_timeout = 600
+  end
+end
+
+  config.vm.provision "shell", inline: "echo Hello"
+
+end

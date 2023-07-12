@@ -31,8 +31,8 @@ Vagrant.configure("2") do |config|
     worker.vm.box = "whoisshyam/ubuntu-20.04-05"
     worker.vm.hostname = "k8s-worker-#{i}"
     worker.vm.provider "parallels" do |prl|
-      prl.memory = 4096
-      prl.cpus = 2
+      prl.memory = 8096
+      prl.cpus = 4
       prl.name = "k8s-worker-#{i}"
       prl.update_guest_tools = true
     end
